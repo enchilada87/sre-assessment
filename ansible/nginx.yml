@@ -1,0 +1,95 @@
+- name: Install nginx
+  hosts: web
+
+  become: true
+
+  tasks:
+  - shell: apt upgrade -y; apt update
+
+  - name: Set a hostname
+    hostname:
+      name: testymctestface.test
+
+  - name: Install nginx
+    apt:
+      name: nginx
+      state: latest
+  
+  - name: Generate an OpenSSL private key.
+    openssl_privatekey:
+      path: "/etc/ssl/certs/{{ server_hostname }}_privkey.pem"
+
+  - name: Generate an OpenSSL CSR.
+    openssl_csr:
+      path: "/etc/ssl/certs/{{ server_hostname }}.csr"
+      privatekey_path: "/etc/ssl/certs/{{ server_hostname }}_privkey.pem"
+      common_name: "{{ server_hostname }}"
+
+  - name: Generate a Self Signed OpenSSL certificate
+    openssl_certificate:
+      path: "/etc/ssl/certs/{{ server_hostname }}.crt"
+      privatekey_path: "/etc/ssl/certs/{{ server_hostname }}_privkey.pem"
+      csr_path: "/etc/ssl/certs/{{ server_hostname }}.csr"
+      provider: selfsigned
+    
+  - name: Install nginx site cert stuff
+    template:
+      src: sslcertstuff
+      dest: /etc/nginx/conf.d/ssl.conf
+
+  - name: Start NGiNX
+    service:
+      name: nginx
+      state: started      
+
+  - name: Install PostgreSQL
+    apt:
+      name: postgresql
+      state: latest
+  
+  
+  - name: Install python3-pip
+    apt:
+      name: python3-pip
+      state: latest
+  
+  - name: Make sure psycopg2 is installed
+    pip:
+      name: psycopg2-binary
+      state: present
+    
+  - name: Start PostgreSQL
+    service:
+      name: postgresql
+      state: started  
+
+  - name: Create nginx postgres database
+    remote_user: root
+    become: yes
+    become_user: postgres
+    postgresql_db:
+      name: nginx
+  
+  - name: Create nginx postgres user
+    remote_user: root
+    become: yes
+    become_user: postgres
+    postgresql_user:
+      name: nginx
+      db: nginx
+      priv: ALL
+      role_attr_flags: SUPERUSER,CREATEROLE
+  
+  - name: Create nginx table with several columns in nginx tablespace
+    remote_user: root
+    become: yes
+    become_user: postgres
+    postgresql_table:
+      db: nginx
+      name: nginx
+      owner: nginx
+      columns:
+      - id bigserial primary key
+      - firstname text
+      - lastname text
+      

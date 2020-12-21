@@ -1,0 +1,10 @@
+web:
+  hosts:
+    ubuntu.aws
+  vars:
+    ansible_user: ubuntu
+    ansible_ssh_private_key_file: ~/.ssh/id_rsa
+    ansible_sudo_pass: qwerty
+    server_hostname: testymctestface.test
+    key_size: 4096
+    key_type: Ed25519
