@@ -1,0 +1,44 @@
+worker_processes 8;
+
+events {}
+
+http {
+  upstream database {
+    postgres_server 127.0.0.1 dbname=nginx user=nginx;
+  }
+  
+  server {
+    listen       443;
+    server_name  {{ server_hostname }};
+
+    location /articles {
+      postgres_pass database;
+      rds_json on;
+      postgres_query    HEAD GET  "SELECT * FROM nginx";
+      
+      postgres_escape $title $arg_title;
+      postgres_escape $body  $arg_body;
+      postgres_query
+        POST "INSERT INTO nginx (id firstname, lastname) VALUES($id, $firstname, $lastname) RETURNING *";
+      postgres_rewrite  POST changes 201;
+    }
+
+    location ~ /nginx/(?<id>\d+) {
+      postgres_pass database;
+      rds_json  on;
+      postgres_escape $escaped_id $id;
+      postgres_query    HEAD GET  "SELECT * FROM nginx WHERE id=$escaped_id";
+      postgres_rewrite  HEAD GET  no_rows 410;
+
+      postgres_escape $title $arg_title;
+      postgres_escape $body  $arg_body;
+      postgres_query
+        PUT "UPDATE nginx SET id=$id, firstname=$firstname WHERE id=$escaped_id RETURNING *";
+      postgres_rewrite  PUT no_changes 410;
+
+      postgres_query    DELETE  "DELETE FROM nginx WHERE id=$escaped_id";
+      postgres_rewrite  DELETE  no_changes 410;
+      postgres_rewrite  DELETE  changes 204;
+    }
+  }
+}
